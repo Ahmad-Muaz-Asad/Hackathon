@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./veritas.db"
+}
+
+// 1. STUDENT REGISTRY (Identity Layer - Links real identity to anon token)
+model Student {
+  rollNo       String    @id          // l1234
+  email        String    @unique       // l1234@lhr.nu.edu.pk
+  tokenClaimed Boolean   @default(false)  // Has taken a token?
+  otpCode      String?                 // Current OTP (null if not pending)
+  otpExpiresAt DateTime?               // OTP expiry
+  userId       String?   @unique       // Link to User token (anonymous)
+  user         User?     @relation(fields: [userId], references: [id])
+}
+
+// 2. ANONYMOUS USER (Activity Layer - The token)
+model User {
+  id         String    @id @default(uuid())
+  reputation Float     @default(50.0)
+  frozen     Boolean   @default(false)   // Frozen after semester reset
+  joinedAt   DateTime  @default(now())
+  votes      Vote[]
+  rumors     Rumor[]
+  student    Student?                    // Back-relation
+}
+
+// 3. RUMOR
+model Rumor {
+  id         String   @id @default(uuid())
+  content    String
+  authorId   String
+  trustScore Float    @default(0.0)
+  status     String   @default("TRIBUNAL")
+  createdAt  DateTime @default(now())
+  visibleAt  DateTime
+  settlesAt  DateTime
+  author     User     @relation(fields: [authorId], references: [id])
+  votes      Vote[]
+}
+
+// 4. VOTE
+model Vote {
+  id      String @id @default(uuid())
+  userId  String
+  rumorId String
+  type    Int
+  weight  Float
+  user    User   @relation(fields: [userId], references: [id])
+  rumor   Rumor  @relation(fields: [rumorId], references: [id])
+
+  @@unique([userId, rumorId])
+}
